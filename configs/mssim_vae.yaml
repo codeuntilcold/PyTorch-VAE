@@ -4,7 +4,7 @@ model_params:
   latent_dim: 128
 
 data_params:
-  data_path: "Data/"
+  data_path: "/home/smooth/khang/assignment_3/StandfordCars"
   train_batch_size: 64
   val_batch_size:  64
   patch_size: 64
@@ -19,8 +19,10 @@ exp_params:
   manual_seed: 1265
 
 trainer_params:
-  gpus: [1]
-  max_epochs: 10
+  # gpus: [1]
+  accelerator: gpu
+  devices: 1
+  max_epochs: 300
 
 logging_params:
   save_dir: "logs/"

@@ -7,7 +7,7 @@ from torchvision.datasets.folder import default_loader
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
-from torchvision.datasets import CelebA
+from torchvision.datasets import CelebA, OxfordIIITPet
 import zipfile
 
 
@@ -15,11 +15,10 @@ import zipfile
 class MyDataset(Dataset):
     def __init__(self):
         pass
-    
-    
+
     def __len__(self):
         pass
-    
+
     def __getitem__(self, idx):
         pass
 
@@ -27,45 +26,117 @@ class MyDataset(Dataset):
 class MyCelebA(CelebA):
     """
     A work-around to address issues with pytorch's celebA dataset class.
-    
+
     Download and Extract
     URL : https://drive.google.com/file/d/1m8-EBPgi5MRubrm6iQjafK2QMHDBMSfJ/view?usp=sharing
     """
-    
+
     def _check_integrity(self) -> bool:
         return True
-    
-    
 
-class OxfordPets(Dataset):
+
+class OxfordPets(OxfordIIITPet):
     """
     URL = https://www.robots.ox.ac.uk/~vgg/data/pets/
     """
-    def __init__(self, 
-                 data_path: str, 
-                 split: str,
-                 transform: Callable,
-                **kwargs):
-        self.data_dir = Path(data_path) / "OxfordPets"        
+
+    # def __init__(self, data_path: str, split: str, transform: Callable, **kwargs):
+    #     self.data_dir = Path(data_path) / "OxfordPets"
+    #     self.transforms = transform
+    #     imgs = sorted([f for f in self.data_dir.iterdir() if f.suffix == ".jpg"])
+    #     self.imgs = (
+    #         imgs[: int(len(imgs) * 0.75)]
+    #         if split == "train"
+    #         else imgs[int(len(imgs) * 0.75) :]
+    #     )
+
+    # def __len__(self):
+    #     return len(self.imgs)
+
+    # def __getitem__(self, idx):
+    #     img = default_loader(self.imgs[idx])
+
+    #     if self.transforms is not None:
+    #         img = self.transforms(img)
+
+    #     return img, 0.0  # dummy datat to prevent breaking
+    def _check_integrity(self) -> bool:
+        return True
+
+
+class StanfordPetsDataset(Dataset):
+    def __init__(self, data_path: str, split: str, transform: Callable, **kwargs):
+        self.data_dir = data_path
         self.transforms = transform
-        imgs = sorted([f for f in self.data_dir.iterdir() if f.suffix == '.jpg'])
-        
-        self.imgs = imgs[:int(len(imgs) * 0.75)] if split == "train" else imgs[int(len(imgs) * 0.75):]
-    
+        image_paths = self.get_image_path(data_path)
+
+        self.imgs = (
+            image_paths[: int(len(image_paths) * 0.75)]
+            if split == "train"
+            else image_paths[int(len(image_paths) * 0.75) :]
+        )
+
+    def get_image_path(self, data_path: str):
+        image_paths = []
+        for folder in os.listdir(data_path):
+            folder_path = os.path.join(data_path, folder)
+            for img in os.listdir(folder_path):
+                img_path = os.path.join(folder_path, img)
+                if img_path.endswith(".jpg"):
+                    image_paths.append(img_path)
+
+        return sorted(image_paths)
+
     def __len__(self):
         return len(self.imgs)
-    
+
     def __getitem__(self, idx):
         img = default_loader(self.imgs[idx])
-        
+
         if self.transforms is not None:
             img = self.transforms(img)
-        
-        return img, 0.0 # dummy datat to prevent breaking 
+
+        return img, 0.0
+    
+class StandFordCars(Dataset):
+    def __init__(self, data_path: str, split: str, transform: Callable, **kwargs):
+        self.data_dir = data_path
+        self.transforms = transform
+        image_paths = self.get_image_path(data_path)
+
+        self.imgs = (
+            image_paths[: int(len(image_paths) * 0.8)]
+            if split == "train"
+            else image_paths[int(len(image_paths) * 0.8) :]
+        )
+
+    def get_image_path(self, data_path: str):
+        image_paths = []
+        for folder in os.listdir(data_path):
+            folder_path = os.path.join(data_path, folder)
+            for img in os.listdir(folder_path):
+                img_path = os.path.join(folder_path, img)
+                if img_path.endswith(".jpg"):
+                    image_paths.append(img_path)
+
+        return sorted(image_paths)
+
+    def __len__(self):
+        return len(self.imgs)
+
+    def __getitem__(self, idx):
+        img = default_loader(self.imgs[idx])
+
+        if self.transforms is not None:
+            img = self.transforms(img)
+
+        return img, 0.0
+
+
 
 class VAEDataset(LightningDataModule):
     """
-    PyTorch Lightning data module 
+    PyTorch Lightning data module
 
     Args:
         data_dir: root directory of your dataset.
@@ -98,60 +169,114 @@ class VAEDataset(LightningDataModule):
         self.pin_memory = pin_memory
 
     def setup(self, stage: Optional[str] = None) -> None:
-#       =========================  OxfordPets Dataset  =========================
-            
-#         train_transforms = transforms.Compose([transforms.RandomHorizontalFlip(),
-#                                               transforms.CenterCrop(self.patch_size),
-# #                                               transforms.Resize(self.patch_size),
-#                                               transforms.ToTensor(),
-#                                                 transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
-        
-#         val_transforms = transforms.Compose([transforms.RandomHorizontalFlip(),
-#                                             transforms.CenterCrop(self.patch_size),
-# #                                             transforms.Resize(self.patch_size),
-#                                             transforms.ToTensor(),
-#                                               transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
+        #       =========================  OxfordPets Dataset  =========================
 
-#         self.train_dataset = OxfordPets(
-#             self.data_dir,
-#             split='train',
-#             transform=train_transforms,
-#         )
-        
-#         self.val_dataset = OxfordPets(
-#             self.data_dir,
-#             split='val',
-#             transform=val_transforms,
-#         )
-        
-#       =========================  CelebA Dataset  =========================
-    
-        train_transforms = transforms.Compose([transforms.RandomHorizontalFlip(),
-                                              transforms.CenterCrop(148),
-                                              transforms.Resize(self.patch_size),
-                                              transforms.ToTensor(),])
-        
-        val_transforms = transforms.Compose([transforms.RandomHorizontalFlip(),
-                                            transforms.CenterCrop(148),
-                                            transforms.Resize(self.patch_size),
-                                            transforms.ToTensor(),])
-        
-        self.train_dataset = MyCelebA(
+        # train_transforms = transforms.Compose(
+        #     [
+        #         transforms.RandomHorizontalFlip(),
+        #         # transforms.CenterCrop(self.patch_size),
+        #         transforms.Resize((self.patch_size, self.patch_size)),
+        #         transforms.ToTensor(),
+        #         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        #     ]
+        # )
+
+        # val_transforms = transforms.Compose(
+        #     [
+        #         transforms.RandomHorizontalFlip(),
+        #         # transforms.CenterCrop(self.patch_size),
+        #         transforms.Resize((self.patch_size, self.patch_size)),
+        #         transforms.ToTensor(),
+        #         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        #     ]
+        # )
+
+        # self.train_dataset = OxfordPets(
+        #     self.data_dir,
+        #     split="trainval",
+        #     transform=train_transforms,
+        #     download=False
+        # )
+
+        # self.val_dataset = OxfordPets(
+        #     self.data_dir,
+        #     split="test",
+        #     transform=val_transforms,
+        #     download=False
+        # )
+
+    #       =========================  CelebA Dataset  =========================
+
+    # train_transforms = transforms.Compose(
+    #     [
+    #         transforms.RandomHorizontalFlip(),
+    #         transforms.CenterCrop(148),
+    #         transforms.Resize(self.patch_size),
+    #         transforms.ToTensor(),
+    #     ]
+    # )
+
+    # val_transforms = transforms.Compose(
+    #     [
+    #         transforms.RandomHorizontalFlip(),
+    #         transforms.CenterCrop(148),
+    #         transforms.Resize(self.patch_size),
+    #         transforms.ToTensor(),
+    #     ]
+    # )
+
+    # self.train_dataset = MyCelebA(
+    #     self.data_dir,
+    #     split="train",
+    #     transform=train_transforms,
+    #     download=False,
+    # )
+
+    # # Replace CelebA with your dataset
+    # self.val_dataset = MyCelebA(
+    #     self.data_dir,
+    #     split="test",
+    #     transform=val_transforms,
+    #     download=False,
+    # )
+
+    #       ===============================================================
+
+    #       =========================  StandfordCars Dataset  =========================
+        train_transforms = transforms.Compose(
+            [
+                transforms.RandomHorizontalFlip(),
+                # transforms.CenterCrop(self.patch_size),
+                transforms.Resize((self.patch_size, self.patch_size)),
+                transforms.ToTensor(),
+                # transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+            ]
+        )
+
+        val_transforms = transforms.Compose(
+            [
+                transforms.RandomHorizontalFlip(),
+                # transforms.CenterCrop(self.patch_size),
+                transforms.Resize((self.patch_size, self.patch_size)),
+                transforms.ToTensor(),
+                # transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+            ]
+        )
+
+        self.train_dataset = StandFordCars(
             self.data_dir,
-            split='train',
+            split="train",
             transform=train_transforms,
-            download=False,
         )
-        
-        # Replace CelebA with your dataset
-        self.val_dataset = MyCelebA(
+
+        self.val_dataset = StandFordCars(
             self.data_dir,
-            split='test',
+            split="val",
             transform=val_transforms,
-            download=False,
         )
-#       ===============================================================
-        
+
+    #       ===============================================================
+
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
             self.train_dataset,
@@ -169,7 +294,7 @@ class VAEDataset(LightningDataModule):
             shuffle=False,
             pin_memory=self.pin_memory,
         )
-    
+
     def test_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         return DataLoader(
             self.val_dataset,
@@ -178,4 +303,3 @@ class VAEDataset(LightningDataModule):
             shuffle=True,
             pin_memory=self.pin_memory,
         )
-     

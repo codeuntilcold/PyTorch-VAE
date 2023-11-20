@@ -3,15 +3,21 @@ import yaml
 import argparse
 import numpy as np
 from pathlib import Path
-from models import *
-from experiment import VAEXperiment
+
 import torch.backends.cudnn as cudnn
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.utilities.seed import seed_everything
+### New lightning does not have dis
+# from pytorch_lightning.utilities.seed import seed_everything
+from pytorch_lightning import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from dataset import VAEDataset
-from pytorch_lightning.plugins import DDPPlugin
+### New lightning does not have dis
+# from pytorch_lightning.plugins import DDPPlugin
+from pytorch_lightning.strategies import DDPStrategy
+
+from models import *
+from experiment import VAEXperiment
 
 
 parser = argparse.ArgumentParser(description='Generic runner for VAE models')
@@ -32,25 +38,28 @@ with open(args.filename, 'r') as file:
 tb_logger =  TensorBoardLogger(save_dir=config['logging_params']['save_dir'],
                                name=config['model_params']['name'],)
 
-# For reproducibility
+### For reproducibility
 seed_everything(config['exp_params']['manual_seed'], True)
 
 model = vae_models[config['model_params']['name']](**config['model_params'])
 experiment = VAEXperiment(model,
                           config['exp_params'])
 
-data = VAEDataset(**config["data_params"], pin_memory=len(config['trainer_params']['gpus']) != 0)
+data = VAEDataset(**config["data_params"], pin_memory=config['trainer_params']['devices'] != 0)
 
 data.setup()
 runner = Trainer(logger=tb_logger,
                  callbacks=[
                      LearningRateMonitor(),
-                     ModelCheckpoint(save_top_k=2, 
+                     ModelCheckpoint(save_top_k=2,
                                      dirpath =os.path.join(tb_logger.log_dir , "checkpoints"), 
                                      monitor= "val_loss",
-                                     save_last= True),
+                                     ### This introduces bug on Google Colab
+                                     # save_last=True
+                                     ),
                  ],
-                 strategy=DDPPlugin(find_unused_parameters=False),
+                 # strategy=DDPPlugin(find_unused_parameters=False),
+                 strategy='ddp',
                  **config['trainer_params'])
 
 
